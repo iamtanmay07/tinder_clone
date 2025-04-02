@@ -80,18 +80,37 @@ app.delete("/user", async (req, res) => {
 });
 
 // User update API 
-app.patch("/user", async (req, res) => {
-    const userId = req.body.userId;
+app.patch("/user/:userId", async (req, res) => {
+    const userId = req.params?.userId;
     const data = req.body;
-
+    
     try {
+        const ALLOWED_CHANGES = [
+            "firstName", "lastName", "photoUrl", "skills"
+        ]
+    
+        // Check if the request body contains only allowed fields
+        const isvalidUpdate = Object.keys(data).every((key) => {
+            return ALLOWED_CHANGES.includes(key);
+        });
+    
+        if(!isvalidUpdate){
+            return res.status(400).send("Invalid update");
+        }
+
+        if(data?.skills){
+            if(data.skills.length > 5){
+                return res.status(400).send("Skills length should be less than 5");
+            }
+        }
+        
+        // Find the user by ID and update it
         const user  = await User.findByIdAndUpdate(userId, data, { new: true, runValidators: true });
         
         if (!user) {
             // If no user is found, return 404
             return res.status(404).send("User not found");
         }
-
         res.send(user); 
         console.log("updation completed");
     } catch (error) {
