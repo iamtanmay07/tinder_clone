@@ -3,34 +3,60 @@ const express = require('express');
 require("./config/database"); 
 const app = express();
 const User = require("./models/user");
+const { validateSignup, validateLogin } = require("./utils/validation");
+const bcrypt = require("bcrypt");
 
 // needed JSON parsing middleware
 app.use(express.json());
 
 // signup the user using POST API
 app.post("/signup", async (req, res) => {
-    
-    // const userObj ={
-    //     firstName: req.body.firstName || "Tanmay",
-    //     lastName: req.body.lastName || "Patel",
-    //     emailId: req.body.emailId || "tanmay9248@gmail.com",
-    //     password: req.body.password || "password",
-    // }
-
-    const userObj = req.body; // destructure the data from the request body
 
     // creating instance of User model 
     // always use try-catch block to handle errors
     try{
-        const user = new User(userObj);
+        // validate the data using the validation function
+        validateSignup(req); 
+        const { firstName, lastName, emailId, password } = req.body;
+        // encrypting the password
+        const passwordHash = await bcrypt.hash(password, 10);
+        
+        const user = new User({
+            firstName, lastName, emailId, password : passwordHash,
+        });
+
         await user.save(); // this will return you a promise 
         res.send("User signed up");
         console.log("User signed up log");
     } catch(err){
         console.error(err);
-        res.status(500).send("Error signing up user");
+        res.status(500).send("Error : " + err.message); 
     }
 }); 
+
+// Login API 
+app.post("/login", async (req, res) => {
+
+    try{
+        validateLogin(req); 
+        const { emailId, password } = req.body;
+
+        const user = await User.findOne({emailId : emailId});
+        if(!user){
+            throw new Error("You haven't signed up yet!");
+        }
+
+        const isPasswordValid = await bcrypt.compare(password, user.password);
+        if(!isPasswordValid){
+            throw new Error("Password is incorrect");
+        }
+        res.send("User logged in");
+
+    } catch(err){
+        console.error(err);
+        res.status(500).send("Error : " + err.message); 
+    }
+});
 
 // GET API to find the user by email
 app.get("/user", async (req, res) => {
