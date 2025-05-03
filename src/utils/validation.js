@@ -1,4 +1,6 @@
 const validator = require('validator');
+const ConnectionRequest = require("../models/connectionRequest");
+const User = require("../models/user");
 
 const validateSignup = (req) => {
     const { firstName, lastName, emailId, password} = req.body;
@@ -52,10 +54,46 @@ const validateEditedData = (req) => {
     return true;
 }
     
+const validateRequest = async (req) => {
+    const { status } = req.params;
+    const { toUserId } = req.params;
+    const fromUserId = req.user._id;
 
+    if (fromUserId === toUserId) {
+        throw new Error("You cannot send a request to yourself");
+    }
+    if (!toUserId) {
+        throw new Error("User ID is required");
+    }
+    if (!["ignored", "interested"].includes(status)) {
+        throw new Error("Invalid status");
+    }
+
+    const validToUserId = await User.findById(toUserId);
+    if(!validToUserId){
+        throw new Error("User not found");
+    }
+
+    const isConnectionExistAlready = await ConnectionRequest.findOne({
+        $or:[
+            {fromUserId : fromUserId, toUserId : toUserId}, 
+            {fromUserId : toUserId, toUserId : fromUserId},
+        ]
+    });
+
+    if(isConnectionExistAlready){
+        throw new Error("Connection request already exists");
+    }
+    return true;
+};
+
+const validateRequestReview = async (req) => {
+    
+}
 
 module.exports = {
     validateSignup,
     validateLogin,
     validateEditedData,
+    validateRequest,
 }
